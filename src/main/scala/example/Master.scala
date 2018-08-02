@@ -1,18 +1,11 @@
 package example
 
-import akka.routing.{ ActorRefRoutee, RoundRobinRoutingLogic, Router }
 import akka.actor._
+import akka.routing.FromConfig
 import org.slf4j.MDC
 
-class Master extends Actor {
-  var router = {
-    val routees = Vector.fill(5) {
-      val r = context.actorOf(Props[Worker].withDispatcher("my-dispatcher"))
-      context watch r
-      ActorRefRoutee(r)
-    }
-    Router(RoundRobinRoutingLogic(), routees)
-  }
+class Master extends Actor {  
+  var router = context.actorOf(FromConfig.props(Props[Worker]), "router1")
 
   var totalMessageCount = 0  
 
@@ -20,11 +13,6 @@ class Master extends Actor {
     case s: String =>
       totalMessageCount += 1
       MDC.put("message", s)
-      router.route(totalMessageCount, sender())
-    case Terminated(a) =>
-      router = router.removeRoutee(a)
-      val r = context.actorOf(Props[Worker])
-      context watch r
-      router = router.addRoutee(r)
+      router ! totalMessageCount
   }
 }
